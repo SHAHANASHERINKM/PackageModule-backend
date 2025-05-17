@@ -29,6 +29,10 @@ export class FeeDetails {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   discount_value: number | null;
 
+@Column({ type: 'date', nullable: true })
+duration: Date | null;
+
+
   @Column({ type: 'text', nullable: true })
   discount_type: string | null;
 
@@ -41,12 +45,11 @@ export class FeeDetails {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   min_amount: number | null;
 
- 
+  @Column({ type: 'int', nullable: true })
+  seats: number | null;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
-
-  
 
   @OneToOne(() => Packages, { onDelete: 'CASCADE' })
 @JoinColumn()

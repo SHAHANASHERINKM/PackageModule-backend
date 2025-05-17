@@ -827,6 +827,7 @@ async getFeeDetailsByPackageId(packageId: string): Promise<any> {
 }
 
 async updateFeeDetails(updateData: Partial<FeeDetails>): Promise<FeeDetails> {
+  console.log(updateData)
   const packageId = updateData.packages?.package_id;
 
   const packageEntity = await this.packagesRepository.findOne({
@@ -862,6 +863,8 @@ async updateFeeDetails(updateData: Partial<FeeDetails>): Promise<FeeDetails> {
   existingFee.allow_min_amount = updateData.allow_min_amount ?? false;
   existingFee.min_amount = safeNumber(updateData.min_amount);
   existingFee.payment_methods = updateData.payment_methods || '';
+  existingFee.seats=safeNumber(updateData.seats );
+  existingFee.duration=updateData.duration || null;
 
   // Update is_free in package table
   packageEntity.is_free = Number(updateData.total_fee) === 0;

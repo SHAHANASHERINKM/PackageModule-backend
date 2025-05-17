@@ -226,6 +226,8 @@ async updateLandingPage(
 
 @Post('price')
 async addPrice(@Body() feeDetails: Partial<FeeDetails>) {
+  
+  
   if (!feeDetails.total_fee) {
     throw new BadRequestException('Total fee is required');
   }
@@ -244,10 +246,11 @@ async getFeeDetails(@Param('packageId') packageId: string) {
 }
 @Put('price')
 async updateFee(@Body() updateData: Partial<FeeDetails>) {
+  console.log('[CONTROLLER] updateData received:', updateData);
   if (!updateData.packages?.package_id) {
     throw new BadRequestException('Package ID is required');
   }
-
+console.log(updateData)
   return this.packageService.updateFeeDetails(updateData);
 }
 
