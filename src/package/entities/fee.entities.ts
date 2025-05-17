@@ -1,5 +1,6 @@
 import { Column, Entity, OneToOne, PrimaryGeneratedColumn, JoinColumn } from "typeorm";
-import { Package } from "./package.entity";
+
+import { Packages } from "./packages.entity";
 
 @Entity()
 export class FeeDetails {
@@ -7,13 +8,13 @@ export class FeeDetails {
   fee_id: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: false})
-  total_fee: number;
+  total_fee: number | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true})
-  first_payment: number;
+  first_payment: number | null;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true})
-  recurring_amount: number;
+  recurring_amount: number | null;
 
   @Column({ type: 'boolean', default: false })
   is_recurring: boolean;
@@ -21,9 +22,7 @@ export class FeeDetails {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   number_of_months: number | null;
 
-  @Column({ type: 'jsonb', nullable: true })
-  individual_course_fee: object; // Stores fees for individual courses in JSON format
-
+  
   @Column({ type: 'boolean', default: false })
   has_discount: boolean;
 
@@ -42,13 +41,14 @@ export class FeeDetails {
   @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
   min_amount: number | null;
 
-  @Column({ type: 'boolean', default: false })
-  financial_aid_available: boolean;
+ 
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   created_at: Date;
 
-  @OneToOne(() => Package, { onDelete: "CASCADE" })
-  @JoinColumn() // Ensures this table has the foreign key
-  package: Package;
+  
+
+  @OneToOne(() => Packages, { onDelete: 'CASCADE' })
+@JoinColumn()
+packages: Packages;
 }

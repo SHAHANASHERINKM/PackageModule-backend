@@ -12,9 +12,14 @@ import { Assessment } from "./entities/assessment.entities";
 import { ModulePackage } from "./entities/module_package.entity";
 import { SuccessMessage } from "./entities/success-message.entities";
 import { Category } from "./entities/categories.entity";
+import { Packages } from "./entities/packages.entity";
+import { IntendedLearners } from "./entities/intended-learners.entities";
+import { Course } from "./entities/course.entity";
+import { CourseLandingPage } from "./entities/course-landing-page.entities";
 
 @Module({
-    imports: [TypeOrmModule.forFeature([UserDetails,Package,FeeDetails,Promotion,PackageAccess,Community,Assessment,ModulePackage,SuccessMessage,Category])],
+    imports: [TypeOrmModule.forFeature([UserDetails,Package,FeeDetails,Promotion,PackageAccess,Community,Assessment,ModulePackage,
+        SuccessMessage,Category,Packages,IntendedLearners,CourseLandingPage])],
     controllers: [PackageController],
     providers: [PackageService],
 })

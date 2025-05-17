@@ -14,6 +14,9 @@ import { PackageModule } from './package/package.module';
 import { ModulePackage } from './package/entities/module_package.entity';
 import { SuccessMessage } from './package/entities/success-message.entities';
 import { Category } from './package/entities/categories.entity';
+import { Packages } from './package/entities/packages.entity';
+import { IntendedLearners } from './package/entities/intended-learners.entities';
+import { CourseLandingPage } from './package/entities/course-landing-page.entities';
 
 @Module({
   imports: [
@@ -25,7 +28,7 @@ import { Category } from './package/entities/categories.entity';
       password:'shahana@2002',
       database:'package',
       entities:[UserDetails,Package,Course,FeeDetails,Promotion,PackageAccess,Assessment,Community,ModulePackage
-       ,SuccessMessage,Category
+       ,SuccessMessage,Category,Packages,IntendedLearners,CourseLandingPage
        
       ],
       synchronize:true,

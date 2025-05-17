@@ -1,5 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
 import { Package } from './package.entity';
+import { Packages } from './packages.entity';
 
 @Entity('users') // This creates the "users" table
 export class UserDetails {
@@ -23,7 +24,7 @@ export class UserDetails {
   @Column({ type: 'text', nullable: true })
   description: string;
 
-  @OneToMany(() => Package, (pkg) => pkg.instructor)
- pkg: Package[];
+  @OneToMany(() => Packages, (pkg) => pkg.user)
+  packages: Packages[];
 
 }

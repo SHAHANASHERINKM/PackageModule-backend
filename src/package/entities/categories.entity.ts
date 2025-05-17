@@ -1,5 +1,6 @@
 
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { Packages } from './packages.entity';
 
 @Entity()
 export class Category {
@@ -8,6 +9,9 @@ export class Category {
 
   @Column({ nullable: false })
   categoryName: string;
+
+  @OneToMany(() => Packages, (pkg) => pkg.category)
+  packages: Packages[];
 
  
 }

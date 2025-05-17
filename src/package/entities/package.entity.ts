@@ -10,7 +10,7 @@ export enum PackageType {
   PRACTICE_TEST = 'practice test',
 }
 
-@Entity('packages')
+@Entity('package')
 export class Package {
   @PrimaryGeneratedColumn()
   package_id: number;
@@ -67,8 +67,7 @@ export class Package {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP' })
   updated_at: Date;
 
-  @OneToOne(() => FeeDetails, (feeDetails) => feeDetails.package, { cascade: true, onDelete: 'CASCADE' })
-  feeDetails: FeeDetails;
+ 
 
   @Column({ type: 'text', nullable: true })
   thumbnailUrl: string | null;

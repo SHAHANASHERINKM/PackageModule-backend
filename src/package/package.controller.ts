@@ -8,7 +8,7 @@ import { PackageAccess } from "./entities/package-acess.entities";
 import { Community } from "./entities/community.entities";
 import { Assessment } from "./entities/assessment.entities";
 import { ModulePackage, ModuleType } from "./entities/module_package.entity";
-import { FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
+import { AnyFilesInterceptor, FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
 import { UpdatePackageDto } from "./dtos/UpdatePackageDto.dto";
@@ -16,6 +16,11 @@ import { UpdateFeeDto } from "./dtos/updateFee.dto";
 import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Category } from "./entities/categories.entity";
+import { CreateBasicInfoDto } from "./dtos/basic-info.dto";
+import {  Packages } from "./entities/packages.entity";
+import { CreateIntendedLearnersDto } from "./dtos/create-intended-learners.dto";
+import {  CreateCourseLandingPageDto } from "./dtos/course-landing-page-dto";
+import { CourseLandingPage } from "./entities/course-landing-page.entities";
 
 
 @Controller('package')
@@ -26,8 +31,17 @@ export class PackageController{
     async createUser(@Body() userData:Partial<UserDetails>){
       console.log('User data received:', userData); // Log the incoming data
     return this.packageService.createUser(userData)
-
     }
+
+   @Get('user/:id')
+async getUserById(@Param('id') id: number) {
+  const user = await this.packageService.getUserById(id);
+  if (!user) {
+    throw new NotFoundException(`User with id ${id} not found`);
+  }
+  return user;  // This will be sent as JSON to frontend
+}
+
 
     @Post('login')
   async login(@Body('email') email: string) {
@@ -45,7 +59,258 @@ export class PackageController{
 
     return this.packageService.createCategory({ categoryName });
   }
+
+  @Post("basic-info")
+  async createBasicInfo(@Body() createBasicInfoDto: CreateBasicInfoDto): Promise<{ packageId: number }> {
+    const basicInfoEntity: Packages = await this.packageService.createBasicInfo(createBasicInfoDto);
+    return { packageId: basicInfoEntity.package_id }; // Return the newly created BasicInfo ID
+  }
+
+ @Get('packages/:userId')
+async getBasicInfoByUser(@Param('userId') userId: number) {
+  return await this.packageService.getPackagesByUserId(userId);
+}
+
+
+  @Get(':packageId/package')  //getting whole details of a package by package id
+async getPackageByPackageId(@Param('packageId') packageId: string) {
+   const parsedId = parseInt(packageId, 10);
+
+  if (isNaN(parsedId)) {
+    throw new BadRequestException('Invalid packageId');
+  }
+  return this.packageService.getPackageByPackageId(parsedId);
+}
+
+
+@Delete(':packageId')
+async deletePackage(@Param('packageId') packageId: number): Promise<{ message: string }> {
+  await this.packageService.deletePackage(packageId);
+  return { message: `Package for package ID ${packageId} deleted successfully.` };
+}
+
+@Patch(':packageId/publish')
+async publishPackage(@Param('packageId') packageId: number) {
+  const updated = await this.packageService.publishPackage(packageId);
+  return { message: 'Package published successfully', data: updated };
+}
+
+
+@Patch(':packageId/complete-status')
+updateCompleteStatus(@Param('packageId') id: number) {
+  return this.packageService.updateCompleteStatus(id); // marks complete_status as true
+}
+
+
+
+ @Post(":packageId/intended-learners")
+  async createIntendedLearners(
+    @Param('packageId') packageId: string,
+    @Body() createIntendedLearnersDto: CreateIntendedLearnersDto,
+  ) {
+    return this.packageService.createIntendedLearners(packageId, createIntendedLearnersDto);
+  }
+
+ @Get(":packageId/intended-learners")
+async getIntendedLearners(@Param("packageId") packageId: string) {
+  const packageIdAsNumber = Number(packageId);  // Convert string to number
+
+  if (isNaN(packageIdAsNumber)) {
+    throw new Error("Invalid package ID");
+  }
+
+  return this.packageService.getIntendedLearnersByPackageId(packageIdAsNumber);
+}
+
+// intended-learners.controller.ts
+@Patch(':packageId/intended-learners')
+async updateIntendedLearners(
+  @Param('packageId') packageId: string,
+  @Body() body: any,
+) {
+  return this.packageService.updateByPackageId(packageId, body);
+}
+
+@Post(':packageId/course-landing-page')
+@UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'coverImage', maxCount: 1 },
+        { name: 'thumbnailImage', maxCount: 1 },
+        { name: 'videoFile', maxCount: 1 },
+      ],
+      {
+        storage: diskStorage({
+          destination: (req, file, cb) => {
+            const folder = {
+              coverImage: 'uploads/course-landing-page/cover-image',
+              thumbnailImage: 'uploads/course-landing-page/thumbnails',
+              videoFile: 'uploads/course-landing-page/videos',
+            }[file.fieldname] || 'uploads/others';
+
+            cb(null, folder);
+          },
+          filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+          },
+        }),
+      }
+    ),
+  )
+  async createCourseLandingPage(
+    @Param('packageId') packageId: number, // Capture packageId from URL params
+    @Body() createDto: CreateCourseLandingPageDto,
+    @UploadedFiles()
+    files: {
+      coverImage?: Express.Multer.File[];
+      thumbnailImage?: Express.Multer.File[];
+      videoFile?: Express.Multer.File[];
+    },
+  ) {
+    // Pass packageId to the service along with the DTO and files
+    return this.packageService.createCourseLandingPage(createDto, files, packageId);
+  }
+
+   @Get(':packageId/course-landing-page')
+ async getCourseLandingPage(@Param("packageId") packageId: string) {
+  const packageIdAsNumber = Number(packageId);  // Convert string to number
+
+  if (isNaN(packageIdAsNumber)) {
+    throw new Error("Invalid package ID");
+  }
+
+  return this.packageService.getCourseLandingPageByPackageId(packageIdAsNumber);
+}
+
+@Put(':packageId/course-landing-page')
+ @UseInterceptors(
+  FileFieldsInterceptor(
+      [
+        { name: 'coverImage', maxCount: 1 },
+        { name: 'thumbnailImage', maxCount: 1 },
+        { name: 'videoFile', maxCount: 1 },
+      ],
+      {
+        storage: diskStorage({
+          destination: (req, file, cb) => {
+            const folder = {
+              coverImage: 'uploads/course-landing-page/cover-image',
+              thumbnailImage: 'uploads/course-landing-page/thumbnails',
+              videoFile: 'uploads/course-landing-page/videos',
+            }[file.fieldname] || 'uploads/others';
+
+            cb(null, folder);
+          },
+          filename: (req, file, cb) => {
+            const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+            cb(null, `${file.fieldname}-${uniqueSuffix}${extname(file.originalname)}`);
+          },
+        }),
+      }
+    ),
+)
+async updateLandingPage(
+  @Param('packageId') packageId: string,
+  @UploadedFiles()
+  files: {
+    coverImage?: Express.Multer.File[];
+    thumbnailImage?: Express.Multer.File[];
+    videoFile?: Express.Multer.File[];
+  },
+  @Body() body: CreateCourseLandingPageDto,
+) {
+  
+  return this.packageService.updateCourseLandingPage(+packageId, body, files);
+}
+
+@Post('price')
+async addPrice(@Body() feeDetails: Partial<FeeDetails>) {
+  if (!feeDetails.total_fee) {
+    throw new BadRequestException('Total fee is required');
+  }
+  if (!feeDetails.packages || !feeDetails.packages.package_id) {
+    throw new BadRequestException('Package ID is required');
+  }
+
+  return this.packageService.addFee(feeDetails);
+}
+
+@Get(':packageId/price')
+async getFeeDetails(@Param('packageId') packageId: string) {
+  const result = await this.packageService.getFeeDetailsByPackageId(packageId);
+
+  return result;
+}
+@Put('price')
+async updateFee(@Body() updateData: Partial<FeeDetails>) {
+  if (!updateData.packages?.package_id) {
+    throw new BadRequestException('Package ID is required');
+  }
+
+  return this.packageService.updateFeeDetails(updateData);
+}
+
+ @Delete(':packageId/price')
+  async deleteFee(@Param('id', ParseIntPipe) id: number) {
+    return this.packageService.deleteFeeByPackageId(id);
+  }
+
+   @Post('success-images')
+  @UseInterceptors(
+    FileInterceptor('upload', {
+      storage: diskStorage({
+        destination: './uploads/success-page-images', // folder to save
+        filename: (req, file, callback) => {
+          const uniqueSuffix = `${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
+          callback(null, uniqueSuffix);
+        },
+      }),
+    }),
+  )
+  async uploadFile(@UploadedFile() file: Express.Multer.File) {
+    return {
+      uploaded: true,
+      url: `http://localhost:3000/uploads/success-page-images/${file.filename}`,
+    };
+  }
+  
+  @Post(':packageId/success-message')
+async createContent(
+  @Param('packageId', ParseIntPipe) packageId: number,
+  @Body() body: { pageContent: string },
+): Promise<{ message: string }> {
+  return await this.packageService.createContent(packageId, body.pageContent);
+}
+
+
+
+  @Get(':packageId/success-message')
+async getContent(@Param('packageId', ParseIntPipe) packageId: number) {
+  const content = await this.packageService.findContent(packageId);
+  return content;
+}
+
+
+
+   @Put(':packageId/success-message')
+  async updateContent(
+    @Param('packageId') packageId: string, // Package ID from URL
+    @Body('pageContent') pageContent: string, // HTML content from request body
+  ) {
     
+    // Call the service to update the content
+    return this.packageService.updateContent(packageId, pageContent);
+  }
+
+  @Delete(':packageId/success-message')
+  async deleteContent(@Param('id') id: string): Promise<{ message: string }> {
+    return this.packageService.deleteContent(id);
+  }
+
+
+   /* 
+   /////////////////////////////////////////////////////////// remove from here
     @Post('packages')
     @UseInterceptors(
         FileInterceptor('cover_image', {
@@ -116,11 +381,7 @@ export class PackageController{
       
 
 
-  @Patch('packages/:id/publish')
-  async publishPackage(@Param('id') id: number) {
-    const updated = await this.packageService.publishPackage(id);
-    return { message: 'Package published successfully', data: updated };
-  }
+ 
   
   @Get('published')
 async getPublishedPackages() {
@@ -253,45 +514,10 @@ async updatePackageMedia(
         return await this.packageService.updateFee(feeId,feeData)
     }
 */
+//////////////////////////////////////////////////////////////////////// remove from here
+/*
 
-@Post('fee')
-async addFee(@Body() feeDetails: Partial<FeeDetails>) {
-  if (!feeDetails.total_fee) {
-    throw new BadRequestException('Total fee is required');
-  }
-  if (!feeDetails.package || !feeDetails.package.package_id) {
-    throw new BadRequestException('Package ID is required');
-  }
 
-  return this.packageService.addFee(feeDetails);
-}
-
-@Get(':id/fee')
-async getFeeDetails(@Param('id') packageId: string) {
-  const packageData = await this.packageService.getPackageDetails(packageId);
-
-  if (!packageData) {
-    throw new NotFoundException(`Package with ID ${packageId} not found`);
-  }
-
-  if (packageData.is_free) {
-    return {
-      isFree: true,
-      message: 'This package is free',
-    };
-  }
-
-  const feeDetails = await this.packageService.getFeeDetailsByPackageId(packageId);
-
-  if (!feeDetails) {
-    throw new NotFoundException(`No fee details found for package ID ${packageId}`);
-  }
-
-  return {
-    isFree: false,
-    ...feeDetails,
-  };
-}
 
 
 
@@ -311,56 +537,14 @@ async getFeeDetails(@Param('id') packageId: string) {
     }
   }
 
-    @Delete('fee/:id')
-  async deleteFee(@Param('id', ParseIntPipe) id: number) {
-    return this.packageService.deleteFeeById(id);
-  }
+   
 
-  @Post('success-images')
-  @UseInterceptors(
-    FileInterceptor('upload', {
-      storage: diskStorage({
-        destination: './uploads/success-page-images', // folder to save
-        filename: (req, file, callback) => {
-          const uniqueSuffix = `${Date.now()}-${file.originalname.replace(/\s/g, '_')}`;
-          callback(null, uniqueSuffix);
-        },
-      }),
-    }),
-  )
-  async uploadFile(@UploadedFile() file: Express.Multer.File) {
-    return {
-      uploaded: true,
-      url: `http://localhost:3000/uploads/success-page-images/${file.filename}`,
-    };
-  }
+ 
 
 
 
-  @Post('success-message/:id')
-  async createContent(
-    @Param('id') id: string,
-    @Body() body: { pageContent: string }, // Body contains the HTML content
-  ): Promise<{ message: string }> {
-    // Call the service to handle content creation and return the message
-    return await this.packageService.createContent(id, body.pageContent);
-  }
 
-  @Get('success-message/:id')
-  async getContent(@Param('id') id: string) {
-  
-    return this.packageService.findContent(id);
-  }
-
-  @Put('success-message/:id')
-  async updateContent(
-    @Param('id') id: string, // Package ID from URL
-    @Body('pageContent') pageContent: string, // HTML content from request body
-  ) {
-    
-    // Call the service to update the content
-    return this.packageService.updateContent(id, pageContent);
-  }
+ 
 
     
   /////MODULE
@@ -389,6 +573,7 @@ async getFeeDetails(@Param('id') packageId: string) {
 
   
 
- 
+ ///////////////////////////////////////////remove from here
+ */
 
 }
