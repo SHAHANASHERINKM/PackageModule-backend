@@ -17,6 +17,10 @@ import { Category } from './package/entities/categories.entity';
 import { Packages } from './package/entities/packages.entity';
 import { IntendedLearners } from './package/entities/intended-learners.entities';
 import { CourseLandingPage } from './package/entities/course-landing-page.entities';
+import { CartItem } from './package/entities/cart_items.entity';
+import { WishList } from './package/entities/wish-list.entites';
+import { ScheduleModule } from '@nestjs/schedule';
+import { PurchasedPackage } from './package/entities/purchased-packages.entity';
 
 @Module({
   imports: [
@@ -28,11 +32,11 @@ import { CourseLandingPage } from './package/entities/course-landing-page.entiti
       password:'shahana@2002',
       database:'package',
       entities:[UserDetails,Package,Course,FeeDetails,Promotion,PackageAccess,Assessment,Community,ModulePackage
-       ,SuccessMessage,Category,Packages,IntendedLearners,CourseLandingPage
+       ,SuccessMessage,Category,Packages,IntendedLearners,CourseLandingPage,CartItem,WishList,PurchasedPackage
        
       ],
       synchronize:true,
-    }),PackageModule
+    }),PackageModule,ScheduleModule.forRoot(),
   ],
   controllers: [AppController],
   providers: [AppService],

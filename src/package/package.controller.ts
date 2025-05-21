@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, UploadedFile, UploadedFiles, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpException, HttpStatus, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, UploadedFile, UploadedFiles, UseInterceptors } from "@nestjs/common";
 import { UserDetails } from "./entities/user.entity";
 import { PackageService } from "./package.service";
 import { Package } from "./entities/package.entity";
@@ -66,7 +66,7 @@ async getUserById(@Param('id') id: number) {
     return { packageId: basicInfoEntity.package_id }; // Return the newly created BasicInfo ID
   }
 
- @Get('packages/:userId')
+ @Get('packages/:userId')   //using instructor(user) id..whole packages created by a user
 async getBasicInfoByUser(@Param('userId') userId: number) {
   return await this.packageService.getPackagesByUserId(userId);
 }
@@ -82,6 +82,12 @@ async getPackageByPackageId(@Param('packageId') packageId: string) {
   return this.packageService.getPackageByPackageId(parsedId);
 }
 
+@Get('packages/category/:categoryId')
+  async getPackagesByCategory(
+    @Param('categoryId', ParseIntPipe) categoryId: number,
+  ): Promise<Packages[]> {
+    return this.packageService.findByCategoryId(categoryId);
+  }
 
 @Delete(':packageId')
 async deletePackage(@Param('packageId') packageId: number): Promise<{ message: string }> {
@@ -255,8 +261,8 @@ console.log(updateData)
 }
 
  @Delete(':packageId/price')
-  async deleteFee(@Param('id', ParseIntPipe) id: number) {
-    return this.packageService.deleteFeeByPackageId(id);
+  async deleteFee(@Param('packageId', ParseIntPipe) packageId: number) {
+    return this.packageService.deleteFeeByPackageId(packageId);
   }
 
    @Post('success-images')
@@ -309,8 +315,110 @@ async getContent(@Param('packageId', ParseIntPipe) packageId: number) {
   @Delete(':packageId/success-message')
   async deleteContent(@Param('id') id: string): Promise<{ message: string }> {
     return this.packageService.deleteContent(id);
+
   }
 
+
+  @Post('add-to-cart')
+  async addToCart(
+    @Body('userId', ParseIntPipe) userId: number,
+    @Body('packageId', ParseIntPipe) packageId: number,
+  ) {
+    const item = await this.packageService.addToCart(userId, packageId);
+    return {
+      message: 'Package added to cart successfully',
+      cartItem: item,
+    };
+  }
+
+  @Get('cart/:userId')
+async getCartItems(@Param('userId') userId: number) {
+  return this.packageService.getCartItemsByUserId(userId);
+}
+
+@Delete('cart/:userId/:packageId')
+async removeFromCart(
+  @Param('userId', ParseIntPipe) userId: number,
+  @Param('packageId', ParseIntPipe) packageId: number,
+): Promise<void> {
+  await this.packageService.removeFromCart(userId, packageId);
+}
+
+@Get('cart-wishlist-status/:userId/:packageId')
+async getStatus(
+  @Param('userId') userId: number,
+  @Param('packageId') packageId: number,
+) {
+  return this.packageService.checkWishlistAndCart(userId, packageId);
+}
+
+
+
+@Post('wish-list')
+  async addToWishlist(
+    @Body('userId') userId: number,
+    @Body('packageId') packageId: number,
+  ) {
+    return this.packageService.addToWishlist(userId, packageId);
+  }
+
+   @Get('wish-list/:userId')
+  async getWishlist(@Param('userId', ParseIntPipe) userId: number) {
+    return this.packageService.getWishlistByUserId(userId);
+  }
+
+  @Delete('wish-list/:userId/:packageId')
+async removeFromWishlist(
+  @Param('userId') userId: number,
+  @Param('packageId') packageId: number,
+) {
+  return this.packageService.removeFromWishlist(Number(userId), Number(packageId));
+}
+
+@Post("purchase")
+  async buyPackage(
+    @Body() body: { userId: number; packageId: number },
+  ) {
+    try {
+      const purchase = await this.packageService.createPurchase(body.userId, body.packageId);
+      return { message: 'Purchase successful', purchase };
+    } catch (error) {
+      throw new HttpException(error.message, HttpStatus.BAD_REQUEST);
+    }
+  }
+
+@Get('purchase-status/:userId/:packageId')  //to check if a package is purchased or not 
+async checkPurchaseStatus(
+  @Param('userId') userId: number,
+  @Param('packageId') packageId: number,
+) {
+  const purchased = await this.packageService.isPackagePurchased(userId, packageId);
+  return { purchased };
+}
+
+ @Get('purchased/:userId')
+  getPurchasedPackages(@Param('userId') userId: number) {
+    return this.packageService.getAllPurchasedByUser(userId);
+  }
+
+@Get(':packageId/learners-count')
+  async getLearnersCount(@Param('packageId', ParseIntPipe) packageId: number) {
+    const count = await this.packageService.countByPackage(packageId);
+    return { count };
+  }
+
+
+/*
+@Get('wish-list/:userId/:packageId')
+  async checkWishlist(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('packageId', ParseIntPipe) packageId: number,
+  ) {
+    const isWishlisted = await this.packageService.isWishlisted(userId, packageId);
+
+    return { isWishlisted };
+  }
+*/
 
    /* 
    /////////////////////////////////////////////////////////// remove from here

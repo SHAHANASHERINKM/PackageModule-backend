@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToOne, JoinColumn } from 'typeorm';
-import {  Packages } from './packages.entity';
+import { Packages } from './packages.entity';
 
 @Entity('course-landing-pages')
 export class CourseLandingPage {
@@ -9,9 +9,8 @@ export class CourseLandingPage {
   @Column({ type: 'varchar' })
   title: string;
 
-  @Column({ type: 'varchar', nullable:true })
+  @Column({ type: 'varchar', nullable: true })
   subtitle: string;
-
 
   @Column({ type: 'varchar' })
   description: string;
@@ -31,12 +30,13 @@ export class CourseLandingPage {
   @Column({ type: 'varchar', nullable: true })
   thumbnailImage: string | null;
 
-   
-
   @Column({ type: 'varchar', nullable: true })
   videoFile: string | null;
 
-  @OneToOne(() => Packages, (packages) => packages.courseLandingPage , { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'package_id' }) // this sets the FK in this table
+  @Column({ type: 'int', nullable: true })
+  seats: number | null;
+
+  @OneToOne(() => Packages, (packages) => packages.courseLandingPage, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'package_id' })
   packages: Packages;
 }

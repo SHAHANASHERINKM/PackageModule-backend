@@ -5,6 +5,9 @@ import { IntendedLearners } from './intended-learners.entities';
 import { SuccessMessage } from './success-message.entities';
 import { UserDetails } from './user.entity';
 import { Category } from './categories.entity';
+import { CartItem } from './cart_items.entity';
+import { WishList } from './wish-list.entites';
+import { PurchasedPackage } from './purchased-packages.entity';
 
 @Entity('packages')
 export class Packages {
@@ -15,6 +18,12 @@ export class Packages {
   title: string;
 
   
+// packages.entity.ts
+@OneToMany(() => CartItem, (cartItem) => cartItem.packages)
+cartItems: CartItem[];
+
+@OneToMany(()=>WishList,(wishList)=>wishList.packages)
+wishList:WishList[];
 
  
 
@@ -54,4 +63,8 @@ category: Category;
 
   @OneToOne(() => SuccessMessage, (successMessage) => successMessage.packages)
 successMessage: SuccessMessage;
+
+@OneToMany(() => PurchasedPackage, (purchase) => purchase.packages)
+purchasedPackages: PurchasedPackage[];
+
 }

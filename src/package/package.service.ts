@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { DeepPartial, Equal, In, Repository } from "typeorm";
 import { UserDetails } from "./entities/user.entity";
@@ -24,9 +24,14 @@ import {  CreateCourseLandingPageDto } from "./dtos/course-landing-page-dto";
 import { CourseLandingPage } from "./entities/course-landing-page.entities";
 import * as fs from 'fs';
 import * as path from 'path';
+import { CartItem } from "./entities/cart_items.entity";
+import { WishList } from "./entities/wish-list.entites";
+import { Cron, CronExpression } from "@nestjs/schedule";
+import { PurchasedPackage } from "./entities/purchased-packages.entity";
 
 @Injectable()
 export class PackageService {
+   private readonly logger = new Logger(PackageService.name);
   constructor(
     @InjectRepository(UserDetails)
     private userRepository: Repository<UserDetails>,
@@ -64,12 +69,48 @@ export class PackageService {
 
     @InjectRepository(CourseLandingPage)
     private readonly courseLandingPageRepository: Repository<CourseLandingPage>,
+
+    @InjectRepository(CartItem)
+    private readonly cartRepository: Repository<CartItem>,
+
+    @InjectRepository(WishList)
+    private readonly wishlistRepository: Repository<WishList>,
+
+    @InjectRepository(PurchasedPackage)
+    private readonly purchasedPackageRepository: Repository<PurchasedPackage>,
     
 
   
   
     
   ) {}
+
+
+@Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleDiscountExpiry() {
+    this.logger.log('Running discount expiry cleanup...');
+
+    const expiredFees = await this.feeRepository
+      .createQueryBuilder('fee')
+      .where('fee.has_discount = true')
+      .andWhere('fee.duration IS NOT NULL')
+      .andWhere('fee.duration < CURRENT_DATE')
+      .getMany();
+
+    for (const fee of expiredFees) {
+      fee.has_discount = false;
+      fee.discount_value = null;
+      fee.discount_type = null;
+      fee.duration = null;
+
+      await this.feeRepository.save(fee);
+      this.logger.log(`Discount cleared for fee_id: ${fee.fee_id}`);
+    }
+
+    this.logger.log('Discount expiry cleanup completed.');
+  }
+
+
 
   async createUser(userData: Partial<UserDetails>) {
     const user = this.userRepository.create(userData);
@@ -249,6 +290,12 @@ async getPackageByPackageId(packageId: number) {
   return packageData;
 }
 
+async findByCategoryId(categoryId: number): Promise<Packages[]> {
+    return this.packagesRepository.find({
+      where: { category: {cat_id: categoryId } },  // Filter by categoryId
+      relations: ['category', 'user', 'feeDetails','courseLandingPage','intendedLearners'], // eager relations you want to load
+    });
+  }
 
 
 
@@ -324,41 +371,40 @@ async createCourseLandingPage(
     thumbnailImage?: Express.Multer.File[];
     videoFile?: Express.Multer.File[];
   },
-  packageId: number, // Accept the packageId as a parameter
+  packageId: number,
 ): Promise<CourseLandingPage> {
-  // Retrieve the BasicInfo using the packageId
- const packages = await this.packagesRepository.findOne({ where: { package_id: packageId } });
-
+  const packages = await this.packagesRepository.findOne({ where: { package_id: packageId } });
 
   if (!packages) {
     throw new Error('BasicInfo with the given packageId does not exist.');
   }
- const baseUrl = 'http://localhost:3000';
-  // Helper function to normalize file paths
-  // Normalize the file path (replaces backslashes and handles undefined/null)
-const normalizePath = (path: string | undefined | null): string | null => 
+
+  const baseUrl = 'http://localhost:3000';
+
+  const normalizePath = (path: string | undefined | null): string | null =>
     path ? '/' + path.replace(/\\/g, '/') : null;
 
-// Base URL (ensure it does not end with a slash)
-const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
-// Handle file uploads and normalize paths with base URL
-const coverImageUrl = normalizePath(files.coverImage?.[0]?.path) ? `${normalizedBaseUrl}${normalizePath(files.coverImage?.[0]?.path)}` : null;
-const thumbnailImageUrl = normalizePath(files.thumbnailImage?.[0]?.path) ? `${normalizedBaseUrl}${normalizePath(files.thumbnailImage?.[0]?.path)}` : null;
-const videoFileUrl = normalizePath(files.videoFile?.[0]?.path) ? `${normalizedBaseUrl}${normalizePath(files.videoFile?.[0]?.path)}` : null;
+  const coverImageUrl = normalizePath(files.coverImage?.[0]?.path)
+    ? `${normalizedBaseUrl}${normalizePath(files.coverImage?.[0]?.path)}`
+    : null;
+  const thumbnailImageUrl = normalizePath(files.thumbnailImage?.[0]?.path)
+    ? `${normalizedBaseUrl}${normalizePath(files.thumbnailImage?.[0]?.path)}`
+    : null;
+  const videoFileUrl = normalizePath(files.videoFile?.[0]?.path)
+    ? `${normalizedBaseUrl}${normalizePath(files.videoFile?.[0]?.path)}`
+    : null;
 
+  const courseLandingPage = this.courseLandingPageRepository.create({
+    ...createDto,
+    coverImage: coverImageUrl,
+    thumbnailImage: thumbnailImageUrl,
+    videoFile: videoFileUrl,
+    seats: createDto.seats,
+    packages,
+  });
 
-  // Create the CourseLandingPage and associate with BasicInfo
- const courseLandingPage = this.courseLandingPageRepository.create({
-  ...createDto,
-  coverImage: coverImageUrl,
-  thumbnailImage: thumbnailImageUrl,
-  videoFile: videoFileUrl,
-  packages, // ✅ Correct property to establish the relation
-});
-
-
-  // Save to the database
   return this.courseLandingPageRepository.save(courseLandingPage);
 }
 
@@ -392,7 +438,6 @@ async updateCourseLandingPage(
     videoFile?: Express.Multer.File[];
   },
 ): Promise<CourseLandingPage> {
-  // Retrieve the BasicInfo using the packageId
   const packages = await this.packagesRepository.findOne({
     where: { package_id: packageId },
   });
@@ -401,7 +446,6 @@ async updateCourseLandingPage(
     throw new Error('BasicInfo with the given packageId does not exist.');
   }
 
-  // Retrieve existing landing page using BasicInfo
   const existingLandingPage = await this.courseLandingPageRepository.findOne({
     where: { packages: { package_id: packages.package_id } },
     relations: ['packages'],
@@ -413,15 +457,11 @@ async updateCourseLandingPage(
 
   const baseUrl = 'http://localhost:3000';
 
-  // Helper function to normalize file paths
-  const normalizePath = (path: string | undefined | null): string | null => 
+  const normalizePath = (path: string | undefined | null): string | null =>
     path ? '/' + path.replace(/\\/g, '/') : null;
 
-  const normalizedBaseUrl = baseUrl.replace(/\/$/, ''); // Remove trailing slash if present
+  const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
-  
-
-  // Process new files if uploaded, otherwise keep existing
   const coverImageUrl = files.coverImage?.[0]?.path
     ? `${normalizedBaseUrl}${normalizePath(files.coverImage[0].path)}`
     : existingLandingPage.coverImage;
@@ -434,14 +474,12 @@ async updateCourseLandingPage(
     ? `${normalizedBaseUrl}${normalizePath(files.videoFile[0].path)}`
     : existingLandingPage.videoFile;
 
-  // Log the final URLs to check if they are correctly assigned
   console.log('Updated URLs:', {
     coverImageUrl,
     thumbnailImageUrl,
     videoFileUrl,
   });
 
-  // Merge and update the entity
   const updatedLandingPage = this.courseLandingPageRepository.merge(
     existingLandingPage,
     {
@@ -449,13 +487,12 @@ async updateCourseLandingPage(
       coverImage: coverImageUrl,
       thumbnailImage: thumbnailImageUrl,
       videoFile: videoFileUrl,
+      seats: updateDto.seats,
     },
   );
 
-  // Save updated landing page to the database
   return this.courseLandingPageRepository.save(updatedLandingPage);
 }
-
 async addFee(fee: Partial<FeeDetails>) {
   const {
     total_fee,
@@ -564,15 +601,166 @@ async deleteContent(id: string): Promise<{ message: string }> {
   }
 
 
+ async addToCart(userId: number, packageId: number): Promise<CartItem> {
+    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+
+    const pkg = await this.packagesRepository.findOne({ where: { package_id: packageId } });
+    if (!pkg) throw new NotFoundException('Package not found');
+
+    const alreadyInCart = await this.cartRepository.findOne({
+      where: { user: { user_id: userId }, packages: { package_id: packageId } },
+    });
+
+    if (alreadyInCart) throw new ConflictException('Item already in cart');
+
+    const cartItem = this.cartRepository.create({
+      user,
+      packages: pkg,
+    });
+
+    return this.cartRepository.save(cartItem);
+  }
+
+async getCartItemsByUserId(userId: number): Promise<CartItem[]> {
+  return this.cartRepository.find({
+    where: { user: { user_id: userId } },
+    relations: ['packages','packages.courseLandingPage','packages.feeDetails'],
+  });
+}
+
+async removeFromCart(userId: number, packageId: number): Promise<void> {
+  const cartItem = await this.cartRepository.findOne({
+    where: { user: { user_id: userId }, packages: { package_id: packageId } },
+  });
+
+  if (!cartItem) {
+    throw new NotFoundException('Cart item not found');
+  }
+
+  await this.cartRepository.remove(cartItem);
+}
 
 
+async addToWishlist(userId: number, packageId: number): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { user_id: userId } });
+    if (!user) throw new NotFoundException(`User with ID ${userId} not found`);
+
+    const pkg = await this.packagesRepository.findOne({ where: { package_id: packageId } });
+    if (!pkg) throw new NotFoundException(`Package with ID ${packageId} not found`);
+
+    const existing = await this.wishlistRepository.findOne({ where: { user: { user_id: userId }, packages: { package_id: packageId } } });
+    if (existing) throw new ConflictException('Item already in wishlist');
+
+    const wishlistItem = this.wishlistRepository.create({ user, packages: pkg });
+    await this.wishlistRepository.save(wishlistItem);
+
+    return { message: 'Added to wishlist' };
+  }
 
 
+  // wishlist.service.ts
+async getWishlistByUserId(userId: number) {
+  const wishlistItems = await this.wishlistRepository.find({
+    where: { user: { user_id: userId } },
+     relations: ['packages','packages.courseLandingPage','packages.feeDetails'],
+    order: { added_on: 'DESC' },
+  });
+
+  return wishlistItems;
+}
+
+async removeFromWishlist(userId: number, packageId: number): Promise<{ message: string }> {
+  const wishlistItem = await this.wishlistRepository.findOne({
+    where: {
+      user: { user_id: userId },
+      packages: { package_id: packageId },
+    },
+    relations: ['user', 'packages'],
+  });
+
+  if (!wishlistItem) {
+    throw new NotFoundException('Wishlist item not found');
+  }
+
+  await this.wishlistRepository.remove(wishlistItem);
+
+  return { message: 'Removed from wishlist' };
+}
 
 
+async isWishlisted(userId: number, packageId: number): Promise<boolean> {
+    const entry = await this.wishlistRepository.findOne({
+      where: {
+      user: { user_id: userId },
+      packages: { package_id: packageId },
+    },
+    relations: ['user', 'packages'],
+    });
+    return !!entry;
+  }
+async checkWishlistAndCart(userId: number, packageId: number): Promise<{ isWishlisted: boolean; isInCart: boolean }> {
+    const [wish, cart] = await Promise.all([
+      this.wishlistRepository.findOne({
+        where: { user: { user_id: userId }, packages: { package_id: packageId } },
+      }),
+      this.cartRepository.findOne({
+        where: { user: { user_id: userId }, packages: { package_id: packageId } },
+      }),
+    ]);
 
+    return {
+      isWishlisted: !!wish,
+      isInCart: !!cart,
+    };
+  }
 
+  async createPurchase(userId: number, packageId: number): Promise<PurchasedPackage> {
+    const user = await this.userRepository.findOneBy({ user_id: userId });
+    const pkg = await this.packagesRepository.findOneBy({ package_id: packageId });
 
+    if (!user) throw new Error('User not found');
+    if (!pkg) throw new Error('Package not found');
+
+    const purchase = this.purchasedPackageRepository.create({
+      user,
+      packages: pkg,
+      purchaseDate: new Date(),
+    });
+
+    return await this.purchasedPackageRepository.save(purchase);
+  }
+
+  // package.service.ts
+async isPackagePurchased(userId: number, packageId: number): Promise<boolean> {
+  const purchase = await this.purchasedPackageRepository.findOne({
+    where: {
+      user: { user_id: userId },
+      packages: { package_id: packageId },
+    },
+  });
+
+  return !!purchase;
+}
+
+async getAllPurchasedByUser(userId: number) {
+    return this.purchasedPackageRepository.find({
+      where: { user: { user_id: userId } },
+      relations: ['packages'], // include package details
+      order: { purchaseDate: 'DESC' }
+    });
+  }
+
+  async countByPackage(packageId: number): Promise<number> {
+  const count = await this.purchasedPackageRepository.count({
+    where: {
+      packages: { package_id: packageId },  // double-check this below
+    },
+    relations: ['packages'],  // optional depending on your setup
+  });
+
+  return count;  // <== return the count here
+}
 
 
 
@@ -863,7 +1051,7 @@ async updateFeeDetails(updateData: Partial<FeeDetails>): Promise<FeeDetails> {
   existingFee.allow_min_amount = updateData.allow_min_amount ?? false;
   existingFee.min_amount = safeNumber(updateData.min_amount);
   existingFee.payment_methods = updateData.payment_methods || '';
-  existingFee.seats=safeNumber(updateData.seats );
+  
   existingFee.duration=updateData.duration || null;
 
   // Update is_free in package table

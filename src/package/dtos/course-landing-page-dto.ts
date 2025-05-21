@@ -1,4 +1,5 @@
-import { IsString, IsNotEmpty, IsOptional, IsNumber } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsNumber, IsInt } from 'class-validator';
+import { Type, Transform } from 'class-transformer';
 
 export class CreateCourseLandingPageDto {
   @IsString()
@@ -21,6 +22,7 @@ export class CreateCourseLandingPageDto {
   @IsNotEmpty()
   level: string;
 
+  @Type(() => Number)
   @IsNumber()
   @IsNotEmpty()
   categoryId: number;
@@ -33,4 +35,10 @@ export class CreateCourseLandingPageDto {
 
   @IsOptional()
   videoFile: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Transform(({ value }) => (value === '' ? null : value))
+  seats: number | null;
 }
