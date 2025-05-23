@@ -1,13 +1,8 @@
-import { BadRequestException, Body, Controller, Delete, Get, HttpException, HttpStatus, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, UploadedFile, UploadedFiles, UseInterceptors } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Delete, Get, HttpException, HttpStatus, NotFoundException, Param, ParseIntPipe, Patch, Post, Put, Query, UploadedFile, UploadedFiles, UseInterceptors } from "@nestjs/common";
 import { UserDetails } from "./entities/user.entity";
 import { PackageService } from "./package.service";
-import { Package } from "./entities/package.entity";
+
 import { FeeDetails } from "./entities/fee.entities";
-import { Promotion } from "./entities/promotion.entities";
-import { PackageAccess } from "./entities/package-acess.entities";
-import { Community } from "./entities/community.entities";
-import { Assessment } from "./entities/assessment.entities";
-import { ModulePackage, ModuleType } from "./entities/module_package.entity";
 import { AnyFilesInterceptor, FileFieldsInterceptor, FileInterceptor, FilesInterceptor } from "@nestjs/platform-express";
 import { diskStorage } from "multer";
 import { extname } from "path";
@@ -406,6 +401,13 @@ async checkPurchaseStatus(
     const count = await this.packageService.countByPackage(packageId);
     return { count };
   }
+
+  @Get('search-package')
+  async search(@Query('q') query: string) {
+    if (!query) return [];
+    return this.packageService.searchPackageByTitle(query);
+  }
+
 
 
 /*

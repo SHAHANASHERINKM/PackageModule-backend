@@ -1,15 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DeepPartial, Equal, In, Repository } from "typeorm";
+import { DeepPartial, Equal, ILike, In, Repository } from "typeorm";
 import { UserDetails } from "./entities/user.entity";
-import { Package } from "./entities/package.entity";
+
 import { FeeDetails } from "./entities/fee.entities";
-import { Promotion } from "./entities/promotion.entities";
-import { PackageAccess } from "./entities/package-acess.entities";
-import { Community } from "./entities/community.entities";
-import { Assessment } from "./entities/assessment.entities";
-import { Course } from "./entities/course.entity";
-import { ModulePackage, ModuleType } from "./entities/module_package.entity";
 import Module from "module";
 import { AddFeeDto } from "./dtos/createFee.dto";
 import { UpdatePackageDto } from "./dtos/UpdatePackageDto.dto";
@@ -35,27 +29,10 @@ export class PackageService {
   constructor(
     @InjectRepository(UserDetails)
     private userRepository: Repository<UserDetails>,
-
-    @InjectRepository(Package)
-    private packageRepository: Repository<Package> ,
     
     @InjectRepository(FeeDetails)
     private feeRepository:Repository<FeeDetails>,
 
-    @InjectRepository(Promotion)
-    private promoRepository:Repository<Promotion>,
-
-    @InjectRepository(PackageAccess)
-    private accessRepository:Repository<PackageAccess>,
-
-    @InjectRepository(Community)
-    private communityRepository:Repository<Community>,
-
-    @InjectRepository(Assessment)
-    private assessmentRepository:Repository<Assessment>,
-
-    @InjectRepository(ModulePackage)
-    private moduleRepository:Repository<ModulePackage>,
 
     @InjectRepository(SuccessMessage)
     private readonly successRepository: Repository<SuccessMessage>,
@@ -379,11 +356,14 @@ async createCourseLandingPage(
     throw new Error('BasicInfo with the given packageId does not exist.');
   }
 
-  const baseUrl = 'http://localhost:3000';
+  // Convert "null" string or empty string to actual null
+  if (typeof createDto.seats === "string" && (createDto.seats === "null" || createDto.seats === "")) {
+    createDto.seats = null;
+  }
 
+  const baseUrl = 'http://localhost:3000';
   const normalizePath = (path: string | undefined | null): string | null =>
     path ? '/' + path.replace(/\\/g, '/') : null;
-
   const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
   const coverImageUrl = normalizePath(files.coverImage?.[0]?.path)
@@ -395,6 +375,20 @@ async createCourseLandingPage(
   const videoFileUrl = normalizePath(files.videoFile?.[0]?.path)
     ? `${normalizedBaseUrl}${normalizePath(files.videoFile?.[0]?.path)}`
     : null;
+
+  // --- Update the package title and category here ---
+  if (createDto.title) {
+    packages.title = createDto.title;
+  }
+  if (createDto.categoryId) {
+    // Fetch the category entity
+    const category = await this.categoryRepository.findOne({ where: { cat_id: createDto.categoryId } });
+    if (category) {
+      packages.category = category;
+    }
+  }
+  await this.packagesRepository.save(packages);
+  // --- End update ---
 
   const courseLandingPage = this.courseLandingPageRepository.create({
     ...createDto,
@@ -455,11 +449,27 @@ async updateCourseLandingPage(
     throw new Error('Course landing page not found for the given package.');
   }
 
-  const baseUrl = 'http://localhost:3000';
+  // --- Update the package title and category here ---
+  if (updateDto.title) {
+    packages.title = updateDto.title;
+  }
+  if (updateDto.categoryId) {
+    const category = await this.categoryRepository.findOne({ where: { cat_id: updateDto.categoryId } });
+    if (category) {
+      packages.category = category;
+    }
+  }
+  await this.packagesRepository.save(packages);
+  // --- End update ---
 
+  // Normalize seats value
+  if (typeof updateDto.seats === "string" && (updateDto.seats === "null" || updateDto.seats === "")) {
+    updateDto.seats = null;
+  }
+
+  const baseUrl = 'http://localhost:3000';
   const normalizePath = (path: string | undefined | null): string | null =>
     path ? '/' + path.replace(/\\/g, '/') : null;
-
   const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
   const coverImageUrl = files.coverImage?.[0]?.path
@@ -474,12 +484,6 @@ async updateCourseLandingPage(
     ? `${normalizedBaseUrl}${normalizePath(files.videoFile[0].path)}`
     : existingLandingPage.videoFile;
 
-  console.log('Updated URLs:', {
-    coverImageUrl,
-    thumbnailImageUrl,
-    videoFileUrl,
-  });
-
   const updatedLandingPage = this.courseLandingPageRepository.merge(
     existingLandingPage,
     {
@@ -493,6 +497,7 @@ async updateCourseLandingPage(
 
   return this.courseLandingPageRepository.save(updatedLandingPage);
 }
+
 async addFee(fee: Partial<FeeDetails>) {
   const {
     total_fee,
@@ -746,7 +751,7 @@ async isPackagePurchased(userId: number, packageId: number): Promise<boolean> {
 async getAllPurchasedByUser(userId: number) {
     return this.purchasedPackageRepository.find({
       where: { user: { user_id: userId } },
-      relations: ['packages'], // include package details
+       relations: ['packages','packages.courseLandingPage','packages.feeDetails'],
       order: { purchaseDate: 'DESC' }
     });
   }
@@ -762,201 +767,21 @@ async getAllPurchasedByUser(userId: number) {
   return count;  // <== return the count here
 }
 
-
-
-
-  /////////////////////////////////////////////////////////////////////////////////////
-/* remove this only
-  async createPackage(packageData: Partial<Package> & { instructor_id?: number }, file?: Express.Multer.File) {
-    // Validate required fields
-    if (!packageData.name) {
-        throw new BadRequestException("Package name is required.");
-    }
-    if (!packageData.instructor_id) {
-        throw new BadRequestException("Instructor ID is required.");
-    }
-    
-    // Convert instructor_id to a number
-    const instructorId = Number(packageData.instructor_id);
-    if (isNaN(instructorId)) {
-        throw new BadRequestException("Instructor ID must be a valid number.");
-    }
-
-    // Fetch instructor from `UserDetails`
-    const instructor = await this.userRepository.findOne({
-      where: {
-          user_id: instructorId,
-          role: 'instructor',
-      },
-  });
-  
-  if (!instructor) {
-      throw new NotFoundException(`Instructor with ID ${instructorId} not found.`);
-  }
-
-    // Store file URL if uploaded
-    if (file) {
-        packageData.cover_image = `http://localhost:3000/uploads/${file.filename}`;
-    }
-
-    if (typeof packageData.description === 'string' && packageData.description.startsWith('[')) {
-      try {
-        const parsed = JSON.parse(packageData.description);
-        if (Array.isArray(parsed)) {
-          packageData.description = parsed.join('');
-        }
-      } catch (e) {
-        console.warn('Description is not a JSON array:', e);
-      }
-    }
-    
-    
-    // Create package entity and associate instructor
-    const { instructor_id, ...packageDetails } = packageData; // No error now
-    const newPackage = this.packageRepository.create({
-        ...packageDetails,
-        instructor, 
-        is_published:false,
-    });
-console.log(newPackage)
-    // Save the package
-    return await this.packageRepository.save(newPackage);
+// packages.service.ts
+async searchPackageByTitle(query: string): Promise<any[]> {
+  return this.packagesRepository
+    .createQueryBuilder('packages')
+    .leftJoinAndSelect('packages.courseLandingPage', 'clp')
+    .where('LOWER(clp.title) LIKE LOWER(:query)', { query: `%${query}%` })
+    .select([
+      'packages.package_id',
+      'packages.is_free',
+      'clp.title',
+      'clp.coverImage', // if needed for UI display
+    ])
+    .limit(10)
+    .getMany();
 }
-
-
-async updatePackageMedia(
-  packageId: number,
-  mediaData: {
-    cover_image?: string;
-    thumbnailUrl?: string;
-    promoVideoUrl?: string;
-  },
-) {
-  const packageToUpdate = await this.packageRepository.findOne({
-    where: { package_id: packageId },
-  });
-
-  if (!packageToUpdate) {
-    throw new NotFoundException(`Package with ID ${packageId} not found`);
-  }
-
-  // Only update fields if they are provided
-  if (mediaData.cover_image !== undefined) {
-    packageToUpdate.cover_image = mediaData.cover_image;
-  }
-
-  if (mediaData.thumbnailUrl !== undefined) {
-    packageToUpdate.thumbnailUrl = mediaData.thumbnailUrl;
-  }
-
-  if (mediaData.promoVideoUrl !== undefined) {
-    packageToUpdate.promoVideoUrl = mediaData.promoVideoUrl;
-  }
-
-  const baseUrl = 'http://localhost:3000/uploads';
-
-  // Only update fields if they are provided
-  if (mediaData.cover_image !== undefined) {
-    packageToUpdate.cover_image = `${baseUrl}/${mediaData.cover_image}`;
-  }
-
-  if (mediaData.thumbnailUrl !== undefined) {
-    packageToUpdate.thumbnailUrl = `${baseUrl}/${mediaData.thumbnailUrl}`;
-  }
-
-  if (mediaData.promoVideoUrl !== undefined) {
-    packageToUpdate.promoVideoUrl = `${baseUrl}/${mediaData.promoVideoUrl}`;
-  }
-
-  await this.packageRepository.save(packageToUpdate);
-
-return {
-  message: 'Package media updated successfully',
-  data: {
-    coverImage: packageToUpdate.cover_image ? `${baseUrl}/${packageToUpdate.cover_image}` : null,
-    thumbnail: packageToUpdate.thumbnailUrl ? `${baseUrl}/${packageToUpdate.thumbnailUrl}` : null,
-    promoVideo: packageToUpdate.promoVideoUrl ? `${baseUrl}/${packageToUpdate.promoVideoUrl}` : null,
-  },
-};
-
-}
-
-
-
-async getAllPackages(): Promise<Package[]> {
-  return await this.packageRepository.find({
-    relations: ['feeDetails', 'instructor'],
-    order: { package_id: 'ASC' }, // optional
-  });
-}
-
-async getPackagesByInstructor(instructorId: number): Promise<Package[]> {
-  return await this.packageRepository.find({
-    where: { instructor: { user_id: instructorId } }, // Filtering by instructor ID
-    relations: ['instructor'], // Optional: If you want instructor details too
-  });
-}
-
-
-async updatePackage(id: number, updatePackageDto: UpdatePackageDto): Promise<Package> {
-  // Check if the package exists
-  const existingPackage = await this.packageRepository.findOne({ where: { package_id: id } });
-
-  if (!existingPackage) {
-    throw new NotFoundException(`Package with ID ${id} not found`);
-  }
-
-  // Update the package details
-  Object.assign(existingPackage, updatePackageDto);
-  return await this.packageRepository.save(existingPackage);
-}
-
-
-async deletePackage(id: number): Promise<{ message: string }> {
-  const packageToDelete = await this.packageRepository.findOne({ where: { package_id: id } });
-
-  if (!packageToDelete) {
-    throw new NotFoundException(`Package with ID ${id} not found`);
-  }
-
-  await this.packageRepository.remove(packageToDelete);
-  return { message: `Package with ID ${id} has been deleted successfully` };
-}
-
-//getting  package by id
-async getPackageDetails(packageId: string): Promise<Package | null> {
-  return await this.packageRepository.findOne({
-    where: { package_id: Number(packageId) }, 
-    relations: ['feeDetails', 'instructor'],
-  });
-}
-
-//publishing package
-
-//get published packages
-async getPublishedPackages(): Promise<Package[]> {
-  return await this.packageRepository.find({
-    where: { is_published: true },
-    relations: ['feeDetails','instructor'], // include this if you want related fee details
-  });
-}
-
-
-
-  /*
-  async createPackage(packageData: Partial<Package>) {
-    
-    const newPackage = this.packageRepository.create(packageData);
-    return await this.packageRepository.save(newPackage);
-  }
-
-  async addFee(fee: Partial<FeeDetails>) {
-    
-    const feeDetails = this.feeRepository.create(fee);
-    return await this.feeRepository.save(feeDetails);
-  }
-*/
-
 
 
 async getFee():Promise<FeeDetails[]>{
@@ -977,8 +802,6 @@ async getFeewithPackage():Promise<FeeDetails[]>{
   .getMany();
 
 }
-
-
 
 async getFeeDetailsByPackageId(packageId: string): Promise<any> {
   // Check if the package exists
@@ -1061,19 +884,6 @@ async updateFeeDetails(updateData: Partial<FeeDetails>): Promise<FeeDetails> {
   return await this.feeRepository.save(existingFee);
 }
 
-
-/*
-async updateFeeDetails(id: number, updateFeeDto: UpdateFeeDto): Promise<FeeDetails> {
-  const existingFee = await this.feeRepository.findOne({ where: { package: { package_id: id } } });
-
-  if (!existingFee) {
-    throw new NotFoundException(`Fee details for package ID ${id} not found`);
-  }
-
-  Object.assign(existingFee, updateFeeDto);
-  return await this.feeRepository.save(existingFee);
-}
-*/
 async createContent(packageId: number, pageContent: string): Promise<{ message: string }> {
   const existingContent = await this.successRepository.findOne({
     where: { packages: { package_id: packageId } },
@@ -1102,17 +912,6 @@ async createContent(packageId: number, pageContent: string): Promise<{ message: 
 }
 
 
-
-
-async getMediaDetails(packageId: number) {
-  return this.packageRepository.findOne({
-    where: { package_id: packageId },
-    select: ['cover_image', 'thumbnailUrl', 'promoVideoUrl'],
-  });
-}
-
-
-
 async findContent(packageId: number): Promise<SuccessMessage | null> {
   const content = await this.successRepository.findOne({
     where: { packages: { package_id: packageId } },
@@ -1121,7 +920,6 @@ async findContent(packageId: number): Promise<SuccessMessage | null> {
 
   return content || null;
 }
-
 
 
 async updateContent(packageId: string, pageContent: string): Promise<{ message: string }> {
@@ -1144,89 +942,6 @@ async updateContent(packageId: string, pageContent: string): Promise<{ message: 
 }
 
 
-
-
-
-async addModule(modulePackageData: { module_id: number; module_type: ModuleType; package_id_array: number[] }): Promise<ModulePackage[]> {
-  const savedModules: ModulePackage[] = [];
-
-  for (const packageId of modulePackageData.package_id_array) {
-  // Check if the package exists
-  const packageExists = await this.packageRepository.findOne({ where: { package_id: packageId } });
-
-  if (!packageExists) {
-  console.warn(`Package with ID ${packageId} not found. Skipping...`);
-  continue; // Skip this package if not found
-  }
-
-      const modulePackage = this.moduleRepository.create({
-          module_id: modulePackageData.module_id,
-          module_type: modulePackageData.module_type, // Ensure this is an enum
-          package_id: packageId, // Storing package_id as a single value
-      });
-
-      const savedModule = await this.moduleRepository.save(modulePackage);
-      savedModules.push(savedModule);
-  }
-
-  return savedModules; // Return all saved rows
-}
-
-
-async getModulePackage(module_id:number,module_type:ModuleType):Promise<{package_id:number,package_name:string}[]>{
-  const modulePackages=await this.moduleRepository.find({
-    where:{module_id,module_type},
-    select:["package_id"],
-  });
-  if(!modulePackages.length){
-    throw new NotFoundException("no pacakges for the given module")
-  }
-  const packageIds=modulePackages.map((mp)=>mp.package_id);
-
-  const packages=await this.packageRepository.find({
-    where:{package_id:In(packageIds)},
-    select:["package_id","name"]
-  });
-  return packages.map((pkg)=>({
-    package_id:pkg.package_id,
-    package_name:pkg.name,
-  }));
-
-
-}
-
-/*
-
-  async addPromo(promoDetails:Partial<Promotion>){
-    const promo=this.promoRepository.create(promoDetails);
-    return this.promoRepository.save(promo);
-  }
-
-  async addAccess(accessDetails:Partial<PackageAccess>){
-    const access=this.accessRepository.create(accessDetails);
-    return this.accessRepository.save(access)
-  }
-
-  async addCommunity(communityDetails:Partial<Community>){
-    const community=this.communityRepository.create(communityDetails);
-    return this.communityRepository.save(community);
-  }
-  
-  async addAssessment(assessmentDetails:Partial<Assessment>){
-    const assessment=this.assessmentRepository.create(assessmentDetails);
-    return this.assessmentRepository.save(assessment);
-
-  }
-
-  
-
-  
-
-    
-
-  
-*/
-  
 
  
   

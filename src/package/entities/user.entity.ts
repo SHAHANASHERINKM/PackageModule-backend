@@ -1,5 +1,4 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm';
-import { Package } from './package.entity';
 import { Packages } from './packages.entity';
 import { CartItem } from './cart_items.entity';
 import { WishList } from './wish-list.entites';
