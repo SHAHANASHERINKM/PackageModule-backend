@@ -77,6 +77,12 @@ async getPackageByPackageId(@Param('packageId') packageId: string) {
   return this.packageService.getPackageByPackageId(parsedId);
 }
 
+@Get('packages')
+  async getAllPackages() {
+    const packages = await this.packageService.findAllPackages();
+    return packages;
+  }
+
 @Get('packages/category/:categoryId')
   async getPackagesByCategory(
     @Param('categoryId', ParseIntPipe) categoryId: number,

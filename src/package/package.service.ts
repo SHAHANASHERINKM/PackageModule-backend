@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
-import { DeepPartial, Equal, ILike, In, Repository } from "typeorm";
+import { DeepPartial, Equal, ILike, In, LessThan, Repository } from "typeorm";
 import { UserDetails } from "./entities/user.entity";
 
 import { FeeDetails } from "./entities/fee.entities";
@@ -61,7 +61,7 @@ export class PackageService {
   
     
   ) {}
-
+///delete discount details after the date
 
 @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
   async handleDiscountExpiry() {
@@ -85,6 +85,13 @@ export class PackageService {
     }
 
     this.logger.log('Discount expiry cleanup completed.');
+  }
+  //delete incomplete packages older than 30 days
+
+   @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  async handleCleanupCron() {
+    console.log('Running scheduled cleanup for incomplete packages...');
+    await this.deleteIncompletePackagesOlderThan30Days();
   }
 
 
@@ -149,6 +156,16 @@ export class PackageService {
 }
 
 
+ async deleteIncompletePackagesOlderThan30Days(): Promise<void> {
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+    await this.packagesRepository.delete({
+      complete_status: 'incomplete',
+      updated_at: LessThan(thirtyDaysAgo),
+    });
+  }
+
 
 async getPackagesByUserId(userId: number): Promise<{ success: boolean; message: string; data?: Packages[] }> {
   // Step 1: Check if user exists
@@ -199,6 +216,30 @@ async getPackagesByUserId(userId: number): Promise<{ success: boolean; message: 
 
 
 async deletePackage(packageId: number): Promise<void> {
+  // Find the related CourseLandingPage (with file info)
+  const courseLandingPage = await this.courseLandingPageRepository.findOne({
+    where: { packages: { package_id: packageId } },
+  });
+
+  // Helper to delete a file if it exists
+  const deleteFile = (fileUrl: string | null | undefined) => {
+    if (!fileUrl) return;
+    // If fileUrl is a full URL, remove the domain part
+    const filePath = fileUrl.replace(/^https?:\/\/[^\/]+/, '').replace(/^\//, '');
+    const absolutePath = path.join(process.cwd(), filePath);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+  };
+
+  // Delete files before DB cascade
+  if (courseLandingPage) {
+    deleteFile(courseLandingPage.coverImage);
+    deleteFile(courseLandingPage.thumbnailImage);
+    deleteFile(courseLandingPage.videoFile);
+  }
+
+  // Delete the package (cascade will remove CourseLandingPage from DB)
   const result = await this.packagesRepository.delete({ package_id: packageId });
 
   if (result.affected === 0) {
@@ -265,6 +306,14 @@ async getPackageByPackageId(packageId: number) {
   }
 
   return packageData;
+}
+
+
+async findAllPackages(): Promise<Packages[]> {
+  return this.packagesRepository.find({
+    relations: ['user', 'category', 'courseLandingPage', 'feeDetails'], // include relations if needed
+    order: { created_at: 'DESC' },
+  });
 }
 
 async findByCategoryId(categoryId: number): Promise<Packages[]> {
@@ -472,17 +521,33 @@ async updateCourseLandingPage(
     path ? '/' + path.replace(/\\/g, '/') : null;
   const normalizedBaseUrl = baseUrl.replace(/\/$/, '');
 
-  const coverImageUrl = files.coverImage?.[0]?.path
-    ? `${normalizedBaseUrl}${normalizePath(files.coverImage[0].path)}`
-    : existingLandingPage.coverImage;
+  // Helper to delete old file
+  const deleteFile = (fileUrl: string | null | undefined) => {
+    if (!fileUrl) return;
+    const filePath = fileUrl.replace(/^https?:\/\/[^\/]+/, '').replace(/^\//, '');
+    const absolutePath = path.join(process.cwd(), filePath);
+    if (fs.existsSync(absolutePath)) {
+      fs.unlinkSync(absolutePath);
+    }
+  };
 
-  const thumbnailImageUrl = files.thumbnailImage?.[0]?.path
-    ? `${normalizedBaseUrl}${normalizePath(files.thumbnailImage[0].path)}`
-    : existingLandingPage.thumbnailImage;
+  let coverImageUrl = existingLandingPage.coverImage;
+  if (files.coverImage?.[0]?.path) {
+    deleteFile(existingLandingPage.coverImage);
+    coverImageUrl = `${normalizedBaseUrl}${normalizePath(files.coverImage[0].path)}`;
+  }
 
-  const videoFileUrl = files.videoFile?.[0]?.path
-    ? `${normalizedBaseUrl}${normalizePath(files.videoFile[0].path)}`
-    : existingLandingPage.videoFile;
+  let thumbnailImageUrl = existingLandingPage.thumbnailImage;
+  if (files.thumbnailImage?.[0]?.path) {
+    deleteFile(existingLandingPage.thumbnailImage);
+    thumbnailImageUrl = `${normalizedBaseUrl}${normalizePath(files.thumbnailImage[0].path)}`;
+  }
+
+  let videoFileUrl = existingLandingPage.videoFile;
+  if (files.videoFile?.[0]?.path) {
+    deleteFile(existingLandingPage.videoFile);
+    videoFileUrl = `${normalizedBaseUrl}${normalizePath(files.videoFile[0].path)}`;
+  }
 
   const updatedLandingPage = this.courseLandingPageRepository.merge(
     existingLandingPage,

@@ -1,4 +1,4 @@
-// cart-item.entity.ts
+
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
 
 import { Packages } from './packages.entity';

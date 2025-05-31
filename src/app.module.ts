@@ -14,6 +14,8 @@ import { CartItem } from './package/entities/cart_items.entity';
 import { WishList } from './package/entities/wish-list.entites';
 import { ScheduleModule } from '@nestjs/schedule';
 import { PurchasedPackage } from './package/entities/purchased-packages.entity';
+import { CoursesController } from './courses/courses.controller';
+
 
 @Module({
   imports: [
@@ -31,7 +33,8 @@ import { PurchasedPackage } from './package/entities/purchased-packages.entity';
       synchronize:true,
     }),PackageModule,ScheduleModule.forRoot(),
   ],
-  controllers: [AppController],
+  controllers: [AppController, CoursesController],
   providers: [AppService],
 })
 export class AppModule {}
+
