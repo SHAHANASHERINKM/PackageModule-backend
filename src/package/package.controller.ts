@@ -12,33 +12,33 @@ import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import { Category } from "./entities/categories.entity";
 import { CreateBasicInfoDto } from "./dtos/basic-info.dto";
-import {  Packages } from "./entities/packages.entity";
+import { Packages } from "./entities/packages.entity";
 import { CreateIntendedLearnersDto } from "./dtos/create-intended-learners.dto";
-import {  CreateCourseLandingPageDto } from "./dtos/course-landing-page-dto";
+import { CreateCourseLandingPageDto } from "./dtos/course-landing-page-dto";
 import { CourseLandingPage } from "./entities/course-landing-page.entities";
 
 
 @Controller('package')
-export class PackageController{
-    constructor(private readonly packageService: PackageService) {}
+export class PackageController {
+  constructor(private readonly packageService: PackageService) { }
 
-    @Post('user')
-    async createUser(@Body() userData:Partial<UserDetails>){
-      console.log('User data received:', userData); // Log the incoming data
+  @Post('user')
+  async createUser(@Body() userData: Partial<UserDetails>) {
+    console.log('User data received:', userData); // Log the incoming data
     return this.packageService.createUser(userData)
-    }
-
-   @Get('user/:id')
-async getUserById(@Param('id') id: number) {
-  const user = await this.packageService.getUserById(id);
-  if (!user) {
-    throw new NotFoundException(`User with id ${id} not found`);
   }
-  return user;  // This will be sent as JSON to frontend
-}
+
+  @Get('user/:id')
+  async getUserById(@Param('id') id: number) {
+    const user = await this.packageService.getUserById(id);
+    if (!user) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+    return user;  // This will be sent as JSON to frontend
+  }
 
 
-    @Post('login')
+  @Post('login')
   async login(@Body('email') email: string) {
     if (!email) return { message: 'Email is required' };
     return this.packageService.loginWithEmail(email);
@@ -61,56 +61,56 @@ async getUserById(@Param('id') id: number) {
     return { packageId: basicInfoEntity.package_id }; // Return the newly created BasicInfo ID
   }
 
- @Get('packages/:userId')   //using instructor(user) id..whole packages created by a user
-async getBasicInfoByUser(@Param('userId') userId: number) {
-  return await this.packageService.getPackagesByUserId(userId);
-}
+  @Get('packages/:userId')   //using instructor(user) id..whole packages created by a user
+  async getBasicInfoByUser(@Param('userId') userId: number) {
+    return await this.packageService.getPackagesByUserId(userId);
+  }
 
 
   @Get(':packageId/package')  //getting whole details of a package by package id
-async getPackageByPackageId(@Param('packageId') packageId: string) {
-   const parsedId = parseInt(packageId, 10);
+  async getPackageByPackageId(@Param('packageId') packageId: string) {
+    const parsedId = parseInt(packageId, 10);
 
-  if (isNaN(parsedId)) {
-    throw new BadRequestException('Invalid packageId');
+    if (isNaN(parsedId)) {
+      throw new BadRequestException('Invalid packageId');
+    }
+    return this.packageService.getPackageByPackageId(parsedId);
   }
-  return this.packageService.getPackageByPackageId(parsedId);
-}
 
-@Get('packages')
+  @Get('packages')
   async getAllPackages() {
     const packages = await this.packageService.findAllPackages();
     return packages;
   }
 
-@Get('packages/category/:categoryId')
+  @Get('packages/category/:categoryId')
   async getPackagesByCategory(
     @Param('categoryId', ParseIntPipe) categoryId: number,
   ): Promise<Packages[]> {
     return this.packageService.findByCategoryId(categoryId);
   }
 
-@Delete(':packageId')
-async deletePackage(@Param('packageId') packageId: number): Promise<{ message: string }> {
-  await this.packageService.deletePackage(packageId);
-  return { message: `Package for package ID ${packageId} deleted successfully.` };
-}
+  @Delete(':packageId')
+  async deletePackage(@Param('packageId') packageId: number): Promise<{ message: string }> {
+    await this.packageService.deletePackage(packageId);
+    return { message: `Package for package ID ${packageId} deleted successfully.` };
+  }
 
-@Patch(':packageId/publish')
-async publishPackage(@Param('packageId') packageId: number) {
-  const updated = await this.packageService.publishPackage(packageId);
-  return { message: 'Package published successfully', data: updated };
-}
-
-
-@Patch(':packageId/complete-status')
-updateCompleteStatus(@Param('packageId') id: number) {
-  return this.packageService.updateCompleteStatus(id); // marks complete_status as true
-}
+  @Patch(':packageId/publish')
+  async publishPackage(@Param('packageId') packageId: number) {
+    const updated = await this.packageService.publishPackage(packageId);
+    return { message: 'Package published successfully', data: updated };
+  }
 
 
+  @Patch(':packageId/complete-status')
+  updateCompleteStatus(@Param('packageId') id: number) {
+    return this.packageService.updateCompleteStatus(id); // marks complete_status as true
+  }
 
- @Post(":packageId/intended-learners")
+
+
+  @Post(":packageId/intended-learners")
   async createIntendedLearners(
     @Param('packageId') packageId: string,
     @Body() createIntendedLearnersDto: CreateIntendedLearnersDto,
@@ -118,28 +118,28 @@ updateCompleteStatus(@Param('packageId') id: number) {
     return this.packageService.createIntendedLearners(packageId, createIntendedLearnersDto);
   }
 
- @Get(":packageId/intended-learners")
-async getIntendedLearners(@Param("packageId") packageId: string) {
-  const packageIdAsNumber = Number(packageId);  // Convert string to number
+  @Get(":packageId/intended-learners")
+  async getIntendedLearners(@Param("packageId") packageId: string) {
+    const packageIdAsNumber = Number(packageId);  // Convert string to number
 
-  if (isNaN(packageIdAsNumber)) {
-    throw new Error("Invalid package ID");
+    if (isNaN(packageIdAsNumber)) {
+      throw new Error("Invalid package ID");
+    }
+
+    return this.packageService.getIntendedLearnersByPackageId(packageIdAsNumber);
   }
 
-  return this.packageService.getIntendedLearnersByPackageId(packageIdAsNumber);
-}
+  // intended-learners.controller.ts
+  @Patch(':packageId/intended-learners')
+  async updateIntendedLearners(
+    @Param('packageId') packageId: string,
+    @Body() body: any,
+  ) {
+    return this.packageService.updateByPackageId(packageId, body);
+  }
 
-// intended-learners.controller.ts
-@Patch(':packageId/intended-learners')
-async updateIntendedLearners(
-  @Param('packageId') packageId: string,
-  @Body() body: any,
-) {
-  return this.packageService.updateByPackageId(packageId, body);
-}
-
-@Post(':packageId/course-landing-page')
-@UseInterceptors(
+  @Post(':packageId/course-landing-page')
+  @UseInterceptors(
     FileFieldsInterceptor(
       [
         { name: 'coverImage', maxCount: 1 },
@@ -179,20 +179,20 @@ async updateIntendedLearners(
     return this.packageService.createCourseLandingPage(createDto, files, packageId);
   }
 
-   @Get(':packageId/course-landing-page')
- async getCourseLandingPage(@Param("packageId") packageId: string) {
-  const packageIdAsNumber = Number(packageId);  // Convert string to number
+  @Get(':packageId/course-landing-page')
+  async getCourseLandingPage(@Param("packageId") packageId: string) {
+    const packageIdAsNumber = Number(packageId);  // Convert string to number
 
-  if (isNaN(packageIdAsNumber)) {
-    throw new Error("Invalid package ID");
+    if (isNaN(packageIdAsNumber)) {
+      throw new Error("Invalid package ID");
+    }
+
+    return this.packageService.getCourseLandingPageByPackageId(packageIdAsNumber);
   }
 
-  return this.packageService.getCourseLandingPageByPackageId(packageIdAsNumber);
-}
-
-@Put(':packageId/course-landing-page')
- @UseInterceptors(
-  FileFieldsInterceptor(
+  @Put(':packageId/course-landing-page')
+  @UseInterceptors(
+    FileFieldsInterceptor(
       [
         { name: 'coverImage', maxCount: 1 },
         { name: 'thumbnailImage', maxCount: 1 },
@@ -216,57 +216,57 @@ async updateIntendedLearners(
         }),
       }
     ),
-)
-async updateLandingPage(
-  @Param('packageId') packageId: string,
-  @UploadedFiles()
-  files: {
-    coverImage?: Express.Multer.File[];
-    thumbnailImage?: Express.Multer.File[];
-    videoFile?: Express.Multer.File[];
-  },
-  @Body() body: CreateCourseLandingPageDto,
-) {
-  
-  return this.packageService.updateCourseLandingPage(+packageId, body, files);
-}
+  )
+  async updateLandingPage(
+    @Param('packageId') packageId: string,
+    @UploadedFiles()
+    files: {
+      coverImage?: Express.Multer.File[];
+      thumbnailImage?: Express.Multer.File[];
+      videoFile?: Express.Multer.File[];
+    },
+    @Body() body: CreateCourseLandingPageDto,
+  ) {
 
-@Post('price')
-async addPrice(@Body() feeDetails: Partial<FeeDetails>) {
-  
-  
-  if (!feeDetails.total_fee) {
-    throw new BadRequestException('Total fee is required');
-  }
-  if (!feeDetails.packages || !feeDetails.packages.package_id) {
-    throw new BadRequestException('Package ID is required');
+    return this.packageService.updateCourseLandingPage(+packageId, body, files);
   }
 
-  return this.packageService.addFee(feeDetails);
-}
+  @Post('price')
+  async addPrice(@Body() feeDetails: Partial<FeeDetails>) {
 
-@Get(':packageId/price')
-async getFeeDetails(@Param('packageId') packageId: string) {
-  const result = await this.packageService.getFeeDetailsByPackageId(packageId);
 
-  return result;
-}
-@Put('price')
-async updateFee(@Body() updateData: Partial<FeeDetails>) {
-  console.log('[CONTROLLER] updateData received:', updateData);
-  if (!updateData.packages?.package_id) {
-    throw new BadRequestException('Package ID is required');
+    if (!feeDetails.total_fee) {
+      throw new BadRequestException('Total fee is required');
+    }
+    if (!feeDetails.packages || !feeDetails.packages.package_id) {
+      throw new BadRequestException('Package ID is required');
+    }
+
+    return this.packageService.addFee(feeDetails);
   }
-console.log(updateData)
-  return this.packageService.updateFeeDetails(updateData);
-}
 
- @Delete(':packageId/price')
+  @Get(':packageId/price')
+  async getFeeDetails(@Param('packageId') packageId: string) {
+    const result = await this.packageService.getFeeDetailsByPackageId(packageId);
+
+    return result;
+  }
+  @Put('price')
+  async updateFee(@Body() updateData: Partial<FeeDetails>) {
+    console.log('[CONTROLLER] updateData received:', updateData);
+    if (!updateData.packages?.package_id) {
+      throw new BadRequestException('Package ID is required');
+    }
+    console.log(updateData)
+    return this.packageService.updateFeeDetails(updateData);
+  }
+
+  @Delete(':packageId/price')
   async deleteFee(@Param('packageId', ParseIntPipe) packageId: number) {
     return this.packageService.deleteFeeByPackageId(packageId);
   }
 
-   @Post('success-images')
+  @Post('success-images')
   @UseInterceptors(
     FileInterceptor('upload', {
       storage: diskStorage({
@@ -284,31 +284,31 @@ console.log(updateData)
       url: `http://localhost:3000/uploads/success-page-images/${file.filename}`,
     };
   }
-  
+
   @Post(':packageId/success-message')
-async createContent(
-  @Param('packageId', ParseIntPipe) packageId: number,
-  @Body() body: { pageContent: string },
-): Promise<{ message: string }> {
-  return await this.packageService.createContent(packageId, body.pageContent);
-}
+  async createContent(
+    @Param('packageId', ParseIntPipe) packageId: number,
+    @Body() body: { pageContent: string },
+  ): Promise<{ message: string }> {
+    return await this.packageService.createContent(packageId, body.pageContent);
+  }
 
 
 
   @Get(':packageId/success-message')
-async getContent(@Param('packageId', ParseIntPipe) packageId: number) {
-  const content = await this.packageService.findContent(packageId);
-  return content;
-}
+  async getContent(@Param('packageId', ParseIntPipe) packageId: number) {
+    const content = await this.packageService.findContent(packageId);
+    return content;
+  }
 
 
 
-   @Put(':packageId/success-message')
+  @Put(':packageId/success-message')
   async updateContent(
     @Param('packageId') packageId: string, // Package ID from URL
     @Body('pageContent') pageContent: string, // HTML content from request body
   ) {
-    
+
     // Call the service to update the content
     return this.packageService.updateContent(packageId, pageContent);
   }
@@ -333,29 +333,29 @@ async getContent(@Param('packageId', ParseIntPipe) packageId: number) {
   }
 
   @Get('cart/:userId')
-async getCartItems(@Param('userId') userId: number) {
-  return this.packageService.getCartItemsByUserId(userId);
-}
+  async getCartItems(@Param('userId') userId: number) {
+    return this.packageService.getCartItemsByUserId(userId);
+  }
 
-@Delete('cart/:userId/:packageId')
-async removeFromCart(
-  @Param('userId', ParseIntPipe) userId: number,
-  @Param('packageId', ParseIntPipe) packageId: number,
-): Promise<void> {
-  await this.packageService.removeFromCart(userId, packageId);
-}
+  @Delete('cart/:userId/:packageId')
+  async removeFromCart(
+    @Param('userId', ParseIntPipe) userId: number,
+    @Param('packageId', ParseIntPipe) packageId: number,
+  ): Promise<void> {
+    await this.packageService.removeFromCart(userId, packageId);
+  }
 
-@Get('cart-wishlist-status/:userId/:packageId')
-async getStatus(
-  @Param('userId') userId: number,
-  @Param('packageId') packageId: number,
-) {
-  return this.packageService.checkWishlistAndCart(userId, packageId);
-}
+  @Get('cart-wishlist-status/:userId/:packageId')
+  async getStatus(
+    @Param('userId') userId: number,
+    @Param('packageId') packageId: number,
+  ) {
+    return this.packageService.checkWishlistAndCart(userId, packageId);
+  }
 
 
 
-@Post('wish-list')
+  @Post('wish-list')
   async addToWishlist(
     @Body('userId') userId: number,
     @Body('packageId') packageId: number,
@@ -363,20 +363,20 @@ async getStatus(
     return this.packageService.addToWishlist(userId, packageId);
   }
 
-   @Get('wish-list/:userId')
+  @Get('wish-list/:userId')
   async getWishlist(@Param('userId', ParseIntPipe) userId: number) {
     return this.packageService.getWishlistByUserId(userId);
   }
 
   @Delete('wish-list/:userId/:packageId')
-async removeFromWishlist(
-  @Param('userId') userId: number,
-  @Param('packageId') packageId: number,
-) {
-  return this.packageService.removeFromWishlist(Number(userId), Number(packageId));
-}
+  async removeFromWishlist(
+    @Param('userId') userId: number,
+    @Param('packageId') packageId: number,
+  ) {
+    return this.packageService.removeFromWishlist(Number(userId), Number(packageId));
+  }
 
-@Post("purchase")
+  @Post("purchase")
   async buyPackage(
     @Body() body: { userId: number; packageId: number },
   ) {
@@ -388,21 +388,21 @@ async removeFromWishlist(
     }
   }
 
-@Get('purchase-status/:userId/:packageId')  //to check if a package is purchased or not 
-async checkPurchaseStatus(
-  @Param('userId') userId: number,
-  @Param('packageId') packageId: number,
-) {
-  const purchased = await this.packageService.isPackagePurchased(userId, packageId);
-  return { purchased };
-}
+  @Get('purchase-status/:userId/:packageId')  //to check if a package is purchased or not 
+  async checkPurchaseStatus(
+    @Param('userId') userId: number,
+    @Param('packageId') packageId: number,
+  ) {
+    const purchased = await this.packageService.isPackagePurchased(userId, packageId);
+    return { purchased };
+  }
 
- @Get('purchased/:userId')
+  @Get('purchased/:userId')
   getPurchasedPackages(@Param('userId') userId: number) {
     return this.packageService.getAllPurchasedByUser(userId);
   }
 
-@Get(':packageId/learners-count')
+  @Get(':packageId/learners-count')
   async getLearnersCount(@Param('packageId', ParseIntPipe) packageId: number) {
     const count = await this.packageService.countByPackage(packageId);
     return { count };
@@ -416,283 +416,283 @@ async checkPurchaseStatus(
 
 
 
-/*
-@Get('wish-list/:userId/:packageId')
-  async checkWishlist(
-    @Param('userId', ParseIntPipe) userId: number,
-    @Param('packageId', ParseIntPipe) packageId: number,
-  ) {
-    const isWishlisted = await this.packageService.isWishlisted(userId, packageId);
+  /*
+  @Get('wish-list/:userId/:packageId')
+    async checkWishlist(
+      @Param('userId', ParseIntPipe) userId: number,
+      @Param('packageId', ParseIntPipe) packageId: number,
+    ) {
+      const isWishlisted = await this.packageService.isWishlisted(userId, packageId);
+  
+      return { isWishlisted };
+    }
+  */
 
-    return { isWishlisted };
-  }
-*/
+  /* 
+  /////////////////////////////////////////////////////////// remove from here
+   @Post('packages')
+   @UseInterceptors(
+       FileInterceptor('cover_image', {
+         storage: diskStorage({
+           destination: './uploads', // Folder where images are stored
+           filename: (req, file, callback) => {
+             const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+             const ext = extname(file.originalname);
+             callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+           },
+         }),
+       }),
+     )
+     async createPackage(
+       @Body() packageData: any,
+       @UploadedFile() file: Express.Multer.File,
+     ) {
+       try {
+         return await this.packageService.createPackage(packageData, file);
+       } catch (error) {
+         console.error('Error in createPackage:', error);
+         throw new BadRequestException(error.message || 'Failed to create package.');
+       }
+     }
 
-   /* 
-   /////////////////////////////////////////////////////////// remove from here
-    @Post('packages')
-    @UseInterceptors(
-        FileInterceptor('cover_image', {
-          storage: diskStorage({
-            destination: './uploads', // Folder where images are stored
-            filename: (req, file, callback) => {
-              const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-              const ext = extname(file.originalname);
-              callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
-            },
-          }),
-        }),
-      )
-      async createPackage(
-        @Body() packageData: any,
-        @UploadedFile() file: Express.Multer.File,
-      ) {
-        try {
-          return await this.packageService.createPackage(packageData, file);
-        } catch (error) {
-          console.error('Error in createPackage:', error);
-          throw new BadRequestException(error.message || 'Failed to create package.');
-        }
-      }
+     @Get('packages')
+     async findAll() {
+       const packages = await this.packageService.getAllPackages();
+       //console.log(packages)
+       return packages;
+     }
 
-      @Get('packages')
-      async findAll() {
-        const packages = await this.packageService.getAllPackages();
-        //console.log(packages)
-        return packages;
-      }
+     @Get('package/:id')
+       async getPackageDetails(@Param('id') packageId: string) {
+      const packageData = await this.packageService.getPackageDetails(packageId);
+   
+      //console.log('Fetched package data from service:', packageData); 
+   
+       if (!packageData) {
+         throw new NotFoundException(`Package with ID ${packageId} not found`);
+       }
 
-      @Get('package/:id')
-        async getPackageDetails(@Param('id') packageId: string) {
-       const packageData = await this.packageService.getPackageDetails(packageId);
-    
-       //console.log('Fetched package data from service:', packageData); 
-    
-        if (!packageData) {
-          throw new NotFoundException(`Package with ID ${packageId} not found`);
-        }
-
-        return { package: packageData };
-      }
+       return { package: packageData };
+     }
 
 
-      @Put('package/:id')
-      async updatePackage(
-        @Param('id') id: string,
-        @Body() updatePackageDto: UpdatePackageDto,
-      ) {
-        const numericId = parseInt(id, 10);
-      
-        if (isNaN(numericId)) {
-          throw new NotFoundException('Invalid package ID');
-        }
-      
-        // 🔍 Log the incoming data
-        
-      
-        const updatedPackage = await this.packageService.updatePackage(numericId, updatePackageDto);
-      
-        return {
-          message: 'Package updated successfully',
-          data: updatedPackage,
-        };
-      }
-      
+     @Put('package/:id')
+     async updatePackage(
+       @Param('id') id: string,
+       @Body() updatePackageDto: UpdatePackageDto,
+     ) {
+       const numericId = parseInt(id, 10);
+     
+       if (isNaN(numericId)) {
+         throw new NotFoundException('Invalid package ID');
+       }
+     
+       // 🔍 Log the incoming data
+       
+     
+       const updatedPackage = await this.packageService.updatePackage(numericId, updatePackageDto);
+     
+       return {
+         message: 'Package updated successfully',
+         data: updatedPackage,
+       };
+     }
+     
 
 
  
-  
-  @Get('published')
+ 
+ @Get('published')
 async getPublishedPackages() {
-  return this.packageService.getPublishedPackages(); 
+ return this.packageService.getPublishedPackages(); 
 }
 
-    
+   
 //delete package
-  @Delete(':id')
-  async deletePackage(@Param('id') id: number) {
-    return await this.packageService.deletePackage(id);
-  }
+ @Delete(':id')
+ async deletePackage(@Param('id') id: number) {
+   return await this.packageService.deletePackage(id);
+ }
 
 
-  @Get(':id/media')
+ @Get(':id/media')
 async getPackageMedia(@Param('id', ParseIntPipe) id: number) {
-  const media = await this.packageService.getMediaDetails(id);
-  if (!media) {
-    throw new NotFoundException(`Package with ID ${id} not found`);
-  }
-  return media;
+ const media = await this.packageService.getMediaDetails(id);
+ if (!media) {
+   throw new NotFoundException(`Package with ID ${id} not found`);
+ }
+ return media;
 }
 
 @Patch(':id/media')
 @UseInterceptors(
-  FileFieldsInterceptor(
-    [
-      { name: 'coverImage', maxCount: 1 },
-      { name: 'thumbnail', maxCount: 1 },
-      { name: 'promoVideo', maxCount: 1 },
-    ],
-    {
-      storage: diskStorage({
-        destination: './uploads',
-        filename: (req, file, cb) => {
-          const ext = path.extname(file.originalname);
-          const filename = `${uuidv4()}${ext}`;
-          cb(null, filename);
-        },
-      }),
-    },
-  ),
+ FileFieldsInterceptor(
+   [
+     { name: 'coverImage', maxCount: 1 },
+     { name: 'thumbnail', maxCount: 1 },
+     { name: 'promoVideo', maxCount: 1 },
+   ],
+   {
+     storage: diskStorage({
+       destination: './uploads',
+       filename: (req, file, cb) => {
+         const ext = path.extname(file.originalname);
+         const filename = `${uuidv4()}${ext}`;
+         cb(null, filename);
+       },
+     }),
+   },
+ ),
 )
 async updatePackageMedia(
-  @Param('id') id: string,
-  @UploadedFiles()
-  files: {
-    coverImage?: Express.Multer.File[];
-    thumbnail?: Express.Multer.File[];
-    promoVideo?: Express.Multer.File[];
-  },
+ @Param('id') id: string,
+ @UploadedFiles()
+ files: {
+   coverImage?: Express.Multer.File[];
+   thumbnail?: Express.Multer.File[];
+   promoVideo?: Express.Multer.File[];
+ },
 ) {
-  console.log('Files received:', files);
+ console.log('Files received:', files);
 
-  return this.packageService.updatePackageMedia(+id, {
-    cover_image: files.coverImage?.[0]?.filename || undefined,
-    thumbnailUrl: files.thumbnail?.[0]?.filename || undefined,
-    promoVideoUrl: files.promoVideo?.[0]?.filename || undefined,
-  });
+ return this.packageService.updatePackageMedia(+id, {
+   cover_image: files.coverImage?.[0]?.filename || undefined,
+   thumbnailUrl: files.thumbnail?.[0]?.filename || undefined,
+   promoVideoUrl: files.promoVideo?.[0]?.filename || undefined,
+ });
 }
 
 
 
-      /*
-      
-
+     /*
      
 
-    @Post('addPromo')
-    async addPromo(@Body() promoDetails:Partial<Promotion>){
-        return this.packageService.addPromo(promoDetails)
-
-    }
-
-    @Post('addAccess')
-    async addAccess(@Body() accessDetails:Partial<PackageAccess>){
-        return this.packageService.addAccess(accessDetails)
-    }
-
-    @Post('addCommunity')
-    async addCommunity(@Body() commumityDetails:Partial<Community>){       
-        return this.packageService.addCommunity(commumityDetails)
-    }
-
-    @Post('addAssessment')
-    async addAssessment(@Body() assessmentDetails:Partial<Assessment>){
-        return this.packageService.addAssessment(assessmentDetails)
-
-    }
-
     
 
-    @Get('getAllUsers')
-    async getAllUsers(){
-        return this.packageService.getAllUser();
-    }
+   @Post('addPromo')
+   async addPromo(@Body() promoDetails:Partial<Promotion>){
+       return this.packageService.addPromo(promoDetails)
 
-    @Get('getAllPackage')
-    async getAllPackage(){
-        return this.packageService.getAllPackage();
-    }
+   }
 
-    @Get('getPromo')
-    async getPromo(){
-        return this.packageService.getPromo();
-    }
+   @Post('addAccess')
+   async addAccess(@Body() accessDetails:Partial<PackageAccess>){
+       return this.packageService.addAccess(accessDetails)
+   }
 
-    @Get('getFee')
-    async getFee(){
-        return this.packageService.getFee();
-    }
+   @Post('addCommunity')
+   async addCommunity(@Body() commumityDetails:Partial<Community>){       
+       return this.packageService.addCommunity(commumityDetails)
+   }
 
-    @Get('feeWithPackage')
-    async feeWithPackage(){
-        return this.packageService.getFeewithPackage();
-    }
+   @Post('addAssessment')
+   async addAssessment(@Body() assessmentDetails:Partial<Assessment>){
+       return this.packageService.addAssessment(assessmentDetails)
 
-    
-
-    
-    /*
-
-    @Patch('package/:id')
-    async updatePackage(@Param('id') packageId:number, @Body() packageData:Partial<Package>){
-        return this.packageService.updatePackage(packageId,packageData);
-    }
-
-    @Patch('feeDetails/:id')
-    async updateFee(@Param('id') feeId:number,@Body() feeData:Partial<FeeDetails>){
-        return await this.packageService.updateFee(feeId,feeData)
-    }
-*/
-//////////////////////////////////////////////////////////////////////// remove from here
-/*
-
-
-
-
-
-  @Put(':id/fee')
-  async updateFeeDetails(
-    @Param('id') id: string,
-    @Body() updateFeeDto: UpdateFeeDto,
-  ) {
-    const numericId = parseInt(id, 10);
-    if (isNaN(numericId)) {
-      throw new NotFoundException('Invalid package ID');
-    }
-    const updatedFee=await this.packageService.updateFeeDetails(numericId, updateFeeDto);
-    return {
-      message: 'Fee Details updated successfully',
-    data: updatedFee,
-    }
-  }
+   }
 
    
 
- 
+   @Get('getAllUsers')
+   async getAllUsers(){
+       return this.packageService.getAllUser();
+   }
 
+   @Get('getAllPackage')
+   async getAllPackage(){
+       return this.packageService.getAllPackage();
+   }
 
+   @Get('getPromo')
+   async getPromo(){
+       return this.packageService.getPromo();
+   }
 
+   @Get('getFee')
+   async getFee(){
+       return this.packageService.getFee();
+   }
 
- 
+   @Get('feeWithPackage')
+   async feeWithPackage(){
+       return this.packageService.getFeewithPackage();
+   }
 
-    
-  /////MODULE
-  @Post("module")
-    async addModule(
-        @Body() modulePackageData: { module_id: number; module_type: ModuleType; package_id_array: number[] }
-    ): Promise<ModulePackage[]> {
-        return this.packageService.addModule(modulePackageData);
-    }
-    
-//PACKAGE BY INSTRUCTOR ID
-@Get('instructor/:instructorId')
-    async getPackagesByInstructor(@Param('instructorId') instructorId: number) {
-      return this.packageService.getPackagesByInstructor(instructorId);
-    }
+   
 
-    @Get("module/:module_id/:module_type")
-    async getModulePackage(
-    @Param("module_id") module_id: number,
-    @Param("module_type") module_type: string
-    ): Promise<{ package_id: number; package_name: string }[]> {
-    // Convert module_type string to ModuleType enum
-    const cleanedModuleType = module_type.trim() as ModuleType;
-    return this.packageService.getModulePackage(Number(module_id), cleanedModuleType);
-    }
+   
+   /*
 
+   @Patch('package/:id')
+   async updatePackage(@Param('id') packageId:number, @Body() packageData:Partial<Package>){
+       return this.packageService.updatePackage(packageId,packageData);
+   }
+
+   @Patch('feeDetails/:id')
+   async updateFee(@Param('id') feeId:number,@Body() feeData:Partial<FeeDetails>){
+       return await this.packageService.updateFee(feeId,feeData)
+   }
+*/
+  //////////////////////////////////////////////////////////////////////// remove from here
+  /*
   
-
- ///////////////////////////////////////////remove from here
- */
+  
+  
+  
+  
+    @Put(':id/fee')
+    async updateFeeDetails(
+      @Param('id') id: string,
+      @Body() updateFeeDto: UpdateFeeDto,
+    ) {
+      const numericId = parseInt(id, 10);
+      if (isNaN(numericId)) {
+        throw new NotFoundException('Invalid package ID');
+      }
+      const updatedFee=await this.packageService.updateFeeDetails(numericId, updateFeeDto);
+      return {
+        message: 'Fee Details updated successfully',
+      data: updatedFee,
+      }
+    }
+  
+     
+  
+   
+  
+  
+  
+  
+   
+  
+      
+    /////MODULE
+    @Post("module")
+      async addModule(
+          @Body() modulePackageData: { module_id: number; module_type: ModuleType; package_id_array: number[] }
+      ): Promise<ModulePackage[]> {
+          return this.packageService.addModule(modulePackageData);
+      }
+      
+  //PACKAGE BY INSTRUCTOR ID
+  @Get('instructor/:instructorId')
+      async getPackagesByInstructor(@Param('instructorId') instructorId: number) {
+        return this.packageService.getPackagesByInstructor(instructorId);
+      }
+  
+      @Get("module/:module_id/:module_type")
+      async getModulePackage(
+      @Param("module_id") module_id: number,
+      @Param("module_type") module_type: string
+      ): Promise<{ package_id: number; package_name: string }[]> {
+      // Convert module_type string to ModuleType enum
+      const cleanedModuleType = module_type.trim() as ModuleType;
+      return this.packageService.getModulePackage(Number(module_id), cleanedModuleType);
+      }
+  
+    
+  
+   ///////////////////////////////////////////remove from here
+   */
 
 }

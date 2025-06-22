@@ -4,7 +4,6 @@ import { DeepPartial, Equal, ILike, In, LessThan, Repository } from "typeorm";
 import { UserDetails } from "./entities/user.entity";
 
 import { FeeDetails } from "./entities/fee.entities";
-import Module from "module";
 import { AddFeeDto } from "./dtos/createFee.dto";
 import { UpdatePackageDto } from "./dtos/UpdatePackageDto.dto";
 import { UpdateFeeDto } from "./dtos/updateFee.dto";
